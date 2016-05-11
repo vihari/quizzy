@@ -1,0 +1,23 @@
+body{
+  margin-left:10%;
+  width:80%;
+}
+
+.select2-container{
+  min-width:200px;
+  max-width:300px;
+}
+  
+#result{
+  margin-top: 25px;
+}
+ 
+.row{
+  width: 95%;
+  margin-left:2%;
+}
+
+.col-sm-4{
+  border-top: 1px solid black;
+  border-bottom: 1px solid black;
+}
