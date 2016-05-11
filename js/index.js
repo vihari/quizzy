@@ -7,29 +7,29 @@ $.ajaxSetup({
 /**Routine to handle the response from Wiki's api.php*/
 function format_result (item) {
     var markup = "Searching...";
-    if(item.id){
-	markup = "<div class='select2-result-repository__label'>" + item.label + "</div>";
+    if(item.label){
+	markup = "<div class='select2-result-repository__id'>" + item.label + "</div>";
 	
 	if (item.description) {
-	    markup += "<div class='select2-result-repository__description'>" + item.description + "</div>";
+	    var d = item.description;
+	    var sd = d.substr(0,d.indexOf('. ')-1);
+	    markup += "<div class='select2-result-repository__description'>" + sd + "</div>";
 	}
-	markup += "<div class='select2-result-repository clearfix'>" +
-	    "<div class='select2-result-repository__id'>" + item.id + "</div>";
-    }
-    
+    }    
     return markup;
 }
 
 function format_result_selection (item) {
-    if(!item.id || item.id==-1 || !item.label)
+    if(!item.label)
 	return item.text;
     else
-	return item.label+" ("+item.id+")";
+	return item.label;
 }
     
-var API_ENDPOINT = 'https://www.wikidata.org/w/api.php';
+var SEARCH_API_ENDPOINT = 'http://lookup.dbpedia.org/api/search.asmx/PrefixSearch';//'https://www.wikidata.org/w/api.php';
 var LANGUAGE = 'en';
-
+SPARQL_ENDPOINT = "http://dbpedia.org/sparql";//"https://query.wikidata.org/sparql";
+/* WIKIDATA related params
 var SEARCH_ENTITES = {
     action: 'wbsearchentities',
     format: 'json',
@@ -37,49 +37,65 @@ var SEARCH_ENTITES = {
     language: LANGUAGE,
     uselang: LANGUAGE
 };
+*/
+var SEARCH_ENTITIES = {
+    MaxHits: 5
+}
 
-init=function(){    
+init = function(){    
     qsels = ["select[data-select2!='done'][data-type='prop']","select[data-select2!='done'][data-type='obj']"];
     qsels.map(function(qsel, qi){
-	    if(qi == 0)
-		ph = 'Predicate';
-	    else
-		ph = 'Object';
-	    $(qsel).select2({
-		    placeholder: ph,
-		    allowClear: true,
+	    if(qi == 0){
+		$(qsel).select2({
+			placeholder: 'Predicate',
+			    data: dboprops,
+			    allowClear: true
+		    });
+	    }
+	    else{
+		$(qsel).select2({
+			placeholder: 'Object',
+			allowClear: true,
 			ajax: {
-			url: "https://www.wikidata.org/w/api.php",
-			    dataType: 'jsonp',
+			    headers: {
+				'Accept': 'application/json'
+			    },
+			    url: SEARCH_API_ENDPOINT,
+			    dataType: 'json',
 			    delay: 250,
 			    data: function(params){
-			    var query = JSON.parse(JSON.stringify(SEARCH_ENTITES));
-			    
-			    query.search = params.term;
-			    if(qi == 0)
-				query.type = 'property';
-			    return query; 
-			},
-			    processResults: function (data, params) {
-			    params.page = params.page || 1;
-			    return {
-				results: data.search,
-				    pagination: {
-				    more: (params.page * 30) < data.total_count
-					}
-			    };
-			},
-			    cache: true
+				var query = JSON.parse(JSON.stringify(SEARCH_ENTITIES));
+				
+				query.QueryString = params.term;
+				return query; 
 			    },
-			escapeMarkup: function (markup) { return markup; }, 
-			minimumInputLength: 1,
-			templateResult: format_result,
-			templateSelection: format_result_selection
-			});
+			    processResults: function (data, params) {
+				params.page = params.page || 1;
+				var results = [];
+				$.each(data.results, function(i,v){
+					var o = v;
+					o.id = v.label;
+					results.push(o);
+				    });
+				return {
+				    results: results,
+				    pagination: {
+					more: (params.page * 30) < data.total_count
+					    }
+			    };
+			    },
+				cache: true
+				},
+			    escapeMarkup: function (markup) { return markup; }, 
+			    minimumInputLength: 1,
+			    templateResult: format_result,
+			    templateSelection: format_result_selection
+			    });
+	    }
 	});
-}   
+};
  
-    init();
+$(document).ready(init);
 
 $("#filter-add").click(function(){
 	//make sure to mark the existing select tags so that we do not re-initiate select2 on them
@@ -114,17 +130,21 @@ $(".suggestion").autocomplete({
 SPARQLQueryGenerator = function(clue, answer, filters){
     q = "SELECT ?x ?a ?c WHERE{\n";
     for(var key in filters){
-	val = filters[key];    
-	q += "?x wdt:"+key+" wd:"+val+" .\n";
+	val = filters[key];
+	//Special handling of "instanceOf" type (a) -- a hack!
+	if (key != 'a')
+	    q += "?x dbo:"+key+" dbo:"+val+" .\n";
+	else
+	    q += "?x "+key+" dbo:"+val+" .\n";
     }
     if (answer.indexOf(':') == -1)
-	q += "?x wdt:"+answer+" ?a .\n";
+	q += "?x dbo:"+answer+" ?a .\n";
     else
 	//typically, such a property is language related description of some sort; such as rdfs:label
 	q += "?x "+answer+" ?a filter (lang(?a) = 'en') .\n";
     
     if(clue.indexOf(':') == -1)
-	q += "?x wdt:"+clue+" ?c .\n";
+	q += "?x dbo:"+clue+" ?c .\n";
     else
 	q += "?x "+clue+" ?c filter (lang(?c) = 'en') .\n";
     q += "}\n";
@@ -213,13 +233,14 @@ pick_and_display_view = function(data){
 	    render_table(data);
 	    render_image_grid(data);
 	    var aclue = results[0].c;
-	    if(aclue.type=="uri" && aclue.value.match(/.*(jpg|bmp|jpeg|png)$/i))
-		toggle_view('image');
+	    if(aclue.type=="uri" && aclue.value.match(/.*(jpg|bmp|jpeg|png)[\?$]/i))
+		toggle_view("image");
 	    else
-		toggle_view('table');
+		toggle_view("table");
 	}else{
 	    $("#table_view").html("No hits found");
-	    $("#table_view").show();
+	    $("#grid_view").html("No hits found");
+	    toggle_view("table");
 	}
     }
 }
@@ -237,12 +258,11 @@ $("#generate").click(function(){
 	q = SPARQLQueryGenerator(clue, answer, filters);
 	console.log("SPARQL Query: "+q);
 	alert("SPARQL Query: "+q);
-	SPARQL_ENDPOINT = "https://query.wikidata.org/sparql";
 	$.ajax({
 		url: SPARQL_ENDPOINT,
 		data: {
 		    query: q,
-		    format: 'json'
+		    format: 'application/sparql-results+json'
 		},
 		dataType: 'json'
 	 }).success(function(data, status){

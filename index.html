@@ -56,7 +56,7 @@
 	    <div class="form-group">
 	      <label class="control-label col-sm-6" style="text-align:right" for="clue">Clue:</label>
 	      <div class="col-sm-6" style="text-align:left">
-		<select data-type="prop" class="form-control" id="clue"><option value="P18">image (P18)</option></select>
+		<select data-type="prop" class="form-control" id="clue"><option value="thumbnail">thumbnail</option></select>
 	      </div>
 	    </div>
 	    <br><br>
@@ -64,7 +64,7 @@
 	      <label class="control-label col-sm-6" style="text-align:right" for="answer">Answer:</label>
 	      <div class="col-sm-6" style="text-align:left">
 		<select class="form-control" data-type="prop" id="answer">
-		  <option value="rdfs:label">Label</option>
+		  <option value="foaf:name">Name</option>
 		</select>
 	      </div>
 	    </div>
@@ -104,6 +104,7 @@
 </div>
 
 <script src='js/index.js'></script>
+<script type='text/javascript' src='data/dboprops.json'></script>
 <link rel="stylesheet" href="css/index.css">
 </body>
 </html>
