@@ -18,6 +18,33 @@ body{
 }
 
 .col-sm-4{
+  word-wrap: break-word;
   border-top: 1px solid black;
   border-bottom: 1px solid black;
+}
+
+#select_zone{
+  border: 1px solid;
+}
+
+#select_zone td:nth-child(3){
+  max-width:200px;
+  white-space: nowrap; 
+  text-overflow:ellipsis; 
+  overflow: hidden;
+}
+
+#toolbox{
+  background-color: rgba(225, 225, 224, 0.8);
+  text-align: left;
+}
+
+.tag{
+  background-color: rgba(208, 216, 245, 0.5);
+  display: inline-block;
+  margin-left: 10px;
+}
+
+.remove{
+  cursor: pointer;
 }

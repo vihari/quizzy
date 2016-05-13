@@ -2,31 +2,38 @@
 <head>
 <meta charset="utf-8">
 <title>Puzzle Generator</title>
-  <script src="https://code.jquery.com/jquery-1.10.2.js"></script>
-  <script src="https://code.jquery.com/ui/1.11.4/jquery-ui.js"></script>
 
-  <link rel="stylesheet" href="http://maxcdn.bootstrapcdn.com/bootstrap/3.3.6/css/bootstrap.min.css">
-  <script src="http://maxcdn.bootstrapcdn.com/bootstrap/3.3.6/js/bootstrap.min.js"></script>
-  <!--<script src="https://cdn.rawgit.com/twbs/bootstrap/v4-dev/dist/js/bootstrap.js" integrity="sha384-XXXXXXXX" crossorigin="anonymous"></script>-->
+<script src="https://code.jquery.com/jquery-1.10.2.js"></script>
+<!--Tooltip-->
+<link rel="stylesheet" href="//code.jquery.com/ui/1.11.4/themes/smoothness/jquery-ui.css">
+<script src="https://code.jquery.com/ui/1.11.4/jquery-ui.js"></script>
 
-  <link href="https://cdnjs.cloudflare.com/ajax/libs/select2/4.0.2/css/select2.min.css" rel="stylesheet" />
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/select2/4.0.2/js/select2.min.js"></script>
+<link rel="stylesheet" href="http://maxcdn.bootstrapcdn.com/bootstrap/3.3.6/css/bootstrap.min.css">
+<script src="http://maxcdn.bootstrapcdn.com/bootstrap/3.3.6/js/bootstrap.min.js"></script>
+<!--<script src="https://cdn.rawgit.com/twbs/bootstrap/v4-dev/dist/js/bootstrap.js" integrity="sha384-XXXXXXXX" crossorigin="anonymous"></script>-->
+
+<link href="https://cdnjs.cloudflare.com/ajax/libs/select2/4.0.2/css/select2.min.css" rel="stylesheet" />
+<script src="https://cdnjs.cloudflare.com/ajax/libs/select2/4.0.2/js/select2.min.js"></script>
+
+<link href="css/font-awesome-4.6.2/css/font-awesome.min.css" rel="stylesheet" />
 </head>
 
 <body style='text-align:center'>
   <div class="panel-group">
     <div class="panel panel-primary">
       <div class="panel-heading" style='font-size:20px'>Puzzle Generator
-      <span class="dropdown" style="position:absolute; right:15%">
+      <span class="dropdown" style="position:absolute; right:11%">
 	<button class="btn btn-primary dropdown-toggle" type="button" data-toggle="dropdown">Examples
 	  <span class="caret"></span></button>
 	<ul class="dropdown-menu">
-	  <li><a href="#">Puzzle on Snakes</a></li>
-	  <li><a href="#">Puzzle on American Presidents</a></li>
-	  <li><a href="#">Puzzle on Flags</a></li>
+	  <li><a class="example" data-label="snakes">Puzzle on Snakes</a></li>
+	  <li><a class="example" data-label="mountains">Puzzle on Mountains</a></li>
+	  <li><a class="example" data-label="companies">Puzzle on Companies</a></li>
+	  <li><a class="example" data-label="birds">Puzzle on Birds</a></li>
+	  <li><a class="example" data-label="flags">Puzzle on Flags</a></li>
 	</ul>
       </span>
-      <span class="dropdown" style="position:absolute; right:11%">
+      <!--<span class="dropdown" style="position:absolute; right:11%">
 	<button class="btn btn-primary dropdown-toggle" type="button" data-toggle="dropdown">	<span class="glyphicon glyphicon-info-sign"></span>
 	  <span class="caret"></span></button>
 	<ul class="dropdown-menu">
@@ -34,49 +41,53 @@
 	  <li><a href="#" target="_blank">About/Contact</a></li>
 	</ul>
       </span>
+      -->
       </div>
       
-
       <div class="panel-body">
-	<form id="main-form" class="form" role="form">
-	  <legend><span class="glyphicon glyphicon-filter"></span> Filters</legend>  
-	  <span class="filters">
-	    <div class="form-group filter">
-              <select type="text" placeholder="Predicate" class="suggestion" data-type="prop" required>
-	      </select>
-	      <select type="text" placeholder="Object" class="suggestion" data-type="obj">
-	      </select>
-	    </div>
-	  </span>
-	  <div class="form-group">
-	    <a id="filter-add" class="glyphicon glyphicon-plus-sign" style="text-decoration:none;cursor:pointer"></a>
+	<span class="filters">
+	</span>
+	<p>
+	  <div>
+	    <select data-type="obj" id="instance">
+	      <option value="-1">Give an instance of your interest</option>
+	    </select>
+	    <button class="btn btn-primary" onclick="get_and_render_properties()">Go</button>
+	    <p>
+	      <div id="select_zone" style='display: none'>
+		<div id="filters" style='text-align:left;border:1px solid gray'>
+		  <h4 style='margin-left:10px;'><span class="glyphicon glyphicon-filter"><span>&nbsp; Filters</h4>
+		</div>
+		<div id="QA" style='text-align:left;border: 1px solid gray'>
+		  <h4 style='margin-left:10px;'><span class="glyphicon glyphicon-eye-open"></span> &nbsp; Display elements</h4>
+		  <div id='clue' class='tag'></div>
+		  <div id='answer' class='tag'></div>
+		</div>
+		<p>
+		  <div id='toolbox'>
+		    <button class='btn glyphicon glyphicon-unchecked' id='unselect_all'> </button> &nbsp;
+		    <span style='margin-left:30px'>
+		      <button class='btn btn-primary disabled' id='add_filter' title='Add as filter(s)'><span class='glyphicon glyphicon-filter'></span></button>&nbsp;
+		      <button class='btn btn-primary disabled' id='add_clue' title='Add as Clue'><i class='fa fa-lightbulb-o'></i></button>&nbsp;
+		      <button class='btn btn-primary disabled' id='add_answer' title='Add as Answer'><i class='fa fa-check'></i></button>
+		    </span>
+		  </div>		
+		</p>
+		<table id='table' class='table table-striped'>
+		</table>
+	      </div>
+	    </p>
 	  </div>
-	  <legend><span class="glyphicon glyphicon-sunglasses"></span>&nbsp;What to show?</legend>
-	  <form class="form" role="form">
-	    <div class="form-group">
-	      <label class="control-label col-sm-6" style="text-align:right" for="clue">Clue:</label>
-	      <div class="col-sm-6" style="text-align:left">
-		<select data-type="prop" class="form-control" id="clue"><option value="thumbnail">thumbnail</option></select>
-	      </div>
-	    </div>
-	    <br><br>
-	    <div class="form-group">
-	      <label class="control-label col-sm-6" style="text-align:right" for="answer">Answer:</label>
-	      <div class="col-sm-6" style="text-align:left">
-		<select class="form-control" data-type="prop" id="answer">
-		  <option value="foaf:name">Name</option>
-		</select>
-	      </div>
-	    </div>
-      </div>
-      </form>
-      <button class="btn btn-primary" id="generate">Generate</button>
+	</p>
+	<p>
+	  <button class="btn btn-primary" id="generate">Generate</button>
+	</p>
     </div>
   </div>
 </div>
 
 <div class="panel-group" id="display_panel" style="display:none">
-  <div class="panel panel-primary">
+  <div class="panel panel-default">
     <div class="panel-heading" style='font-size:20px'>
       <span class="dropdown" style="position:absolute; right:21%">
 	<button class="btn btn-primary dropdown-toggle" type="button" data-toggle="dropdown">
@@ -104,7 +115,7 @@
 </div>
 
 <script src='js/index.js'></script>
-<script type='text/javascript' src='data/dboprops.json'></script>
+<script src='js/example.js'></script>
 <link rel="stylesheet" href="css/index.css">
 </body>
 </html>
