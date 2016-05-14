@@ -37,6 +37,7 @@ example_gen = function(etype){
     }
     $("#select_zone").show();
     $(".remove").click(function(){$(this).parent().remove();});
+    $("#generate").click();
 };
 
 $(".example").click(function(){
