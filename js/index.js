@@ -4,31 +4,11 @@ $.ajaxSetup({
 	}
     });
 
-append_class_dbpedia = function(item){
-    /**
-       The only programmatic difference I see between dbo -- clases and dbr resources is that, the former is untyped has zero numbert of classes.
-       I don't know how far this can generalize but is the only option now.
-    */
-   
-    if (!item.uri)
-	return item.label;
-    var uri = item.uri;
-    var id = uri.substring(uri.lastIndexOf('/')+1,uri.length);
-    var name = uri.substring(uri.lastIndexOf('/')+1,uri.length);
-    var dbpedia_name;
-    if(item.classes.length == 0)
-	dbpedia_name = "dbo:"+name;
-    else
-	dbpedia_name = "dbr:"+name;
-    return dbpedia_name;
-};
-
 /**Routine to handle the response from Wiki's api.php*/
 function format_result (item) {
     var markup = "Searching...";
     if(item.label){
-	var dbpedia_name = append_class_dbpedia(item);
-	markup = "<div class='select2-result-repository__id'>" + dbpedia_name + "</div>";
+	markup = "<div class='select2-result-repository__id'>" + item.label + "</div>";
 	
 	m = item.uri.match
 	if (item.description) {
@@ -44,7 +24,7 @@ function format_result_selection (item) {
     if(!item.label)
 	return item.text;
     else{
-	var dbpedia_name = append_class_dbpedia(item);
+	var dbpedia_name = item.label;
 	return dbpedia_name;
     }
 }
@@ -57,50 +37,29 @@ var SEARCH_ENTITIES = {
     MaxHits: 5
 }
 
-$(".suggestion").autocomplete({
-	appendTo: ".suggest-box",
-	    minLength: 2,
-	    source: function(request,response){
-	    sgsts=[];
-	    
-	    json=$.get(
-		       function(data, status){
-			   data.search.map(function(d){sgsts.push(d.label+"\n"+d.description+"\n"+d.id);});
-			   response(sgsts);
-		       },'jsonp')  
-		}
-    });
-
 /**
  Generates the SPARQL query for the options selects
  filters - are the list of filters that generate a list of items to work on
  clue - is typically a property of the item shown as a cue to the answer
  answer - is again a property of the item or the label of the item itself that is to be guessed.
+ Note: The generator expects the values to be full blown, i.e. does not use prefixes such as dbo:Google instead it should be http://dbpedia.org/resource/Google. This way there is less confusion (between namespaces) and not worry about escaping chars like period.
 */
-SPARQLQueryGenerator = function(clue, answer, filters){
+SPARQLQueryGenerator = function(clue, answer, filters, limit=20){
     q = "SELECT DISTINCT ?c ?a ?x WHERE{\n";
     for(var key in filters){
 	if(!key || !filters[key])
 	    continue;
 	val = filters[key];
-	//Special handling of "instanceOf" type (a) -- a hack!
-	if (key != 'a')
-	    q += "?x dbo:"+key+" "+val+" .\n";
-	else
-	    q += "?x "+key+" "+val+" .\n";
+	q += "?x <"+key+"> <"+val+"> .\n";
     }
-    if (answer.indexOf(':') == -1)
-	q += "?x "+answer+" ?a .\n";
-    else
-	//typically, such a property is language related description of some sort; such as rdfs:label
-	q += "?x "+answer+" ?a filter (lang(?a) = 'en') .\n";
-    
-    if(clue.indexOf(':') == -1)
-	q += "?x dbo:"+clue+" ?c .\n";
-    else
-	q += "?x "+clue+" ?c filter (lang(?c) = 'en') .\n";
-    q += "}\n";
-    q += "LIMIT 200";
+  
+    q += "?x <"+answer+"> ?a .\n";
+    q += "?x <"+clue+"> ?c .\n";
+  
+    q += "FILTER (regex(?c, 'http://') || (LANG(?c) = 'en')) .\n"
+    q += "FILTER (regex(?a, 'http://') || (LANG(?a) = 'en')) .\n"
+    q += "}\n";  
+    q += "LIMIT "+limit;
     return q;
 };
 
@@ -109,11 +68,6 @@ toggle_view = function(type){
     $("#table_view").css("display","none");
     if(type == 'image'){
 	$("#grid_view").show();
-	$('.grid').masonry({
-	    // options
-	    itemSelector: '.grid-item',
-	    columnWidth: 200
-	});
     }
     else if(type == 'table')
 	$("#table_view").show();
@@ -157,19 +111,24 @@ render_image_grid = function(data){
 	return;
     }
     results = data["results"]["bindings"];
-    var html = "<div class='row'>"; 
+    var html = "<div class='masonry'>"; 
     results.map(function(item,i){
-	    if(i>0 && i%3==0)
-		html += "</div><div class='row'>";
+	    //if(i>0 && i%3==0)
+	    //html += "</div><div class='row'>";
 	    var imuri = item.c.value; 
 	    var name = decodeURI(imuri.substring(imuri.lastIndexOf('/')+1, imuri.length));
-	    html += "<div class='col-sm-4'>";
-	    html += "<a href='"+item.c.value+"?width=1000' target='_blank'>";
-	    html += "<img src="+item.c.value+"?width=300></img>";
+	    var cv = item.c.value;
+	    cv = cv.replace(/\?.*$/,'');
+	    html += "<div class='item'>";
+	    html += "<a href='"+cv+"?width=1000' target='_blank'>";
+	    html += "<img src="+cv+"?width=300></img>";
 	    html += "</a>";
 	    html += "<div>Answer: "+item.a.value+"</div>";
 	    html += "<div>Clue: "+name+"</div>";
-	    html += "<div><a href='https://www.wikidata.org/wiki/"+ item.x.value +"' target='_blank'>ID: " + item.x.value + "</div>";
+	    var xv = item.x.value;
+	    if(xv.startsWith('http'))
+		xv = xv.substring(xv.lastIndexOf('/')+1,xv.length);
+	    html += "<div><a href='"+ item.x.value +"' target='_blank'>ID: " + xv + "</div>";
 	    html += "</div>";
 	});
     html += "</div>";
@@ -199,17 +158,20 @@ pick_and_display_view = function(data){
 
 $("#generate").click(function(){
 	filters={};
-	$(".filter").each(function(i,d){
-		var fs = $(d).find("select");
+	$("#filters .filter").each(function(i,d){
+		var fs = $(this).attr("data-text").split(":::");
 		var pred = fs[0];
 		var obj = fs[1];
-		filters[$(pred).val()] = $(obj).val();
+		filters[pred] = obj;
 	    });
-	clue = $("#clue").val();
-	answer = $("#answer").val();
-	q = SPARQLQueryGenerator(clue, answer, filters);
+	var clue = $("#clue").attr("data-text");
+	var answer = $("#answer").attr("data-text");
+	var limit = $("#limit").val();
+	if(!limit)
+	    limit = 20;
+	q = SPARQLQueryGenerator(clue, answer, filters, limit);
 	console.log("SPARQL Query: "+q);
-	alert("SPARQL Query: "+q);
+	//alert("SPARQL Query: "+q);
 	$.ajax({
 		url: SPARQL_ENDPOINT,
 		data: {
@@ -220,7 +182,6 @@ $("#generate").click(function(){
 	 }).success(function(data, status){
 		 pick_and_display_view(data);
 	 });
-
     });
 
 /**
@@ -233,27 +194,34 @@ render_input_table = function(data){
     }
     var html = "<thead><tr><th>Select</th><th>Property</th><th>Value</th></tr></thead>";
     html += "<tbody>";
+    var pic, label;
     $.each(data.results.bindings, function(i,item){
 	    var basicType = false;
 	    //basic types are of the form: http://www.w3.org/2001/XMLSchema#integer -- filter types based on presence of '#'
-	    if(item.o.type == 'typed-literal')
+	    if(item.o.type == 'literal')
 		basicType = true;
 	    html += "<tr data-literal='" + basicType + "'>";
 	    html += "<td><input type='checkbox'/></td>";
 	    html += "<td>"+item.p.value+"</td>";
 	    html += "<td title='"+item.o.value+"'>"+item.o.value+"</td>";
 	    html += "</tr>";
+	    if(item.p.value == "http://dbpedia.org/ontology/thumbnail")
+		pic = item.o.value;
+	    else if(item.p.value == "http://www.w3.org/2000/01/rdf-schema#label")
+		label = item.o.value;
 	});
     html += "</tbody>";
+    if(pic)
+	pic = pic.replace(/\?(.*)$/,'');
+    $("#title_zone").html("<img src='"+pic+"?width=40'></img> "+label);
     $("#select_zone #table").html(html);
     $("#select_zone").css("display","block");
     init();
 }
 
 get_and_render_properties = function(){
-    var inst = $("#instance").val();
-    var sparql_query = "SELECT ?p ?o {"+inst+" ?p ?o.\n FILTER (regex(?o, 'http://') || (LANG(?o) = 'en')).}";
-    alert(sparql_query);
+    var uri = $("#instance").val();
+    var sparql_query = "SELECT ?p ?o {<"+uri+"> ?p ?o.\n FILTER (regex(?o, 'http://') || (LANG(?o) = 'en')).}";
     $.ajax({
 	    url: SPARQL_ENDPOINT,
 		data:{
@@ -273,13 +241,11 @@ initialize_select2 = function(){
 		$(qsel).select2({
 			placeholder: 'Predicate',
 			    data: [],//dboprops,
-			    allowClear: true
-		    });
+			    });
 	    }
 	    else{
 		$(qsel).select2({
 			placeholder: 'Object',
-			    allowClear: true,
 			    ajax: {
 			    headers: {
 				'Accept': 'application/json'
@@ -293,12 +259,12 @@ initialize_select2 = function(){
 				query.QueryString = params.term;
 				return query; 
 			    },
-				processResults: function (data, params) {
+			     processResults: function (data, params) {
 				params.page = params.page || 1;
 				var results = [];
 				$.each(data.results, function(i,v){
 					var o = v;
-					o.id = append_class_dbpedia(v);
+					o.id = v.uri;
 					results.push(o);
 				    });
 				return {
@@ -348,16 +314,14 @@ add_item = function(item_type){
 	    console.warn("Multiple select for an answer!!");
 	
 	var answer = tuples[0];
-	$("#answer").attr("data-text",answer[0]);
-	$("#answer").html("Answer -- "+answer[0]+" <button class='glyphicon glyphicon-remove remove'></button>");
+	$("#answers").html("<div class='tag' id='answer' data-text='"+answer[0]+"'>Answer -- "+answer[0]+" <button class='glyphicon glyphicon-remove remove'></button></div>");
     }
     else if(item_type == 'clue'){
 	if(tuples.length > 1){
 	    console.warn("Multiple select for a clue!!");
 	}
 	var clue = tuples[0];
-	$("#clue").attr('data-text',clue[0]);
-	$("#clue").html("Clue -- " + clue[0] + " <button class='glyphicon glyphicon-remove remove'></button>");
+       	$("#clues").html("<div class='tag' id='clue' data-text='"+clue[0]+"'>Clue -- "+clue[0]+" <button class='glyphicon glyphicon-remove remove'</div>");
     }
     
     $(".remove").click(function(){$(this).parent().remove();});
@@ -400,9 +364,6 @@ init = function(){
 	});
     $("body *[title]").tooltip();   
 
-    $("#add_filter").click(function(){add_item('filter')});
-    $("#add_answer").click(function(){add_item('answer')});
-    $("#add_clue").click(function(){add_item('clue')});
     $("#unselect_all").click(function(){
 	    if($(this).hasClass('glyphicon-minus')){
 		$("#select_zone input[type='checkbox']").each(function(i,d){
@@ -415,3 +376,10 @@ init = function(){
 	    }
 	});
 };
+
+$('#select_zone').bind("DOMSubtreeModified", function(){
+	if($(".filter").length>0 && $("#answer").length>0 && $("#clue").length>0)
+	    $("#generate").removeClass("disabled");
+    });
+
+$("body *[title]").tooltip();   

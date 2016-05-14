@@ -19,8 +19,6 @@ body{
 
 .col-sm-4{
   word-wrap: break-word;
-  border-top: 1px solid black;
-  border-bottom: 1px solid black;
 }
 
 #select_zone{
@@ -46,5 +44,14 @@ body{
 }
 
 .remove{
+  cursor: pointer;
+}
+
+.introjs-helperNumberLayer{
+  border: 0px none;
+  padding:0px;
+}
+
+.example{
   cursor: pointer;
 }
